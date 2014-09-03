@@ -1,11 +1,3 @@
-import org.jfree.chart.ChartFactory;
-import org.jfree.chart.ChartFrame;
-import org.jfree.chart.JFreeChart;
-import org.jfree.chart.plot.PlotOrientation;
-import org.jfree.data.xy.XYDataset;
-import org.jfree.data.xy.XYSeries;
-import org.jfree.data.xy.XYSeriesCollection;
-
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -17,13 +9,6 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 
-/**
- * Created with IntelliJ IDEA.
- * User: yanlinfeng
- * Date: 7/15/14
- * Time: 10:39 AM
- * To change this template use File | Settings | File Templates.
- */
 public class StraceAnalyzer {
 
     private static int LINEFEED = 10;
@@ -351,65 +336,4 @@ class ReadWriteSizeContainer implements Comparable<ReadWriteSizeContainer> {
     }
 }
 
-class SyscallEntry implements  Comparable<SyscallEntry> {
 
-
-    String syscallName;
-
-    int fd;
-
-    public int getFd() {
-        return fd;
-    }
-
-    public void setFd(int fd) {
-        this.fd = fd;
-    }
-
-    public int getSize() {
-        return size;
-    }
-
-    public void setSize(int size) {
-        this.size = size;
-    }
-
-    int size;
-
-    public String getSyscallName() {
-        return syscallName;
-    }
-
-    public void setSyscallName(String syscallName) {
-        this.syscallName = syscallName;
-    }
-
-    public int getThreadId() {
-        return threadId;
-    }
-
-    public void setThreadId(int threadId) {
-        this.threadId = threadId;
-    }
-
-    public float getDuration() {
-        return duration;
-    }
-
-    public void setDuration(float duration) {
-        this.duration = duration;
-    }
-
-    int threadId;
-
-    float duration;
-
-
-    @Override
-    public int compareTo(SyscallEntry syscallEntry) {
-        if(this.duration < syscallEntry.duration)
-            return 1;  //To change body of implemented methods use File | Settings | File Templates.
-        else
-            return -1;
-    }
-}
