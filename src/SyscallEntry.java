@@ -1,6 +1,5 @@
 public class SyscallEntry implements Comparable<SyscallEntry> {
 
-
     String syscallName;
     int fd;
     int size;
