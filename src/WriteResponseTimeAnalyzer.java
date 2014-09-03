@@ -19,13 +19,6 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 
-/**
- * Created with IntelliJ IDEA.
- * User: yanlinfeng
- * Date: 7/15/14
- * Time: 10:39 AM
- * To change this template use File | Settings | File Templates.
- */
 public class WriteResponseTimeAnalyzer {
 
     private static int LINEFEED = 10;
@@ -37,7 +30,7 @@ public class WriteResponseTimeAnalyzer {
     float sum_time = 0;
     MappedByteBuffer buffer;
     HashMap<Integer, SyscallEntry> pendingSyscallTbl = new HashMap<Integer, SyscallEntry>();
-    HashMap<Integer, Set<SyscallEntry>> writeTbl = new HashMap<Integer,Set<SyscallEntry>>();
+    HashMap<Integer, Set<SyscallEntry>> writeTbl = new HashMap<Integer, Set<SyscallEntry>>();
 
     public static void main(String[] args) {
         long begin = System.currentTimeMillis();
@@ -122,7 +115,7 @@ public class WriteResponseTimeAnalyzer {
             m.end();
 
             String temp = line.substring(line.indexOf(32), syscall_index).trim();
-            temp = temp.substring(0,temp.length()-3);
+            temp = temp.substring(0, temp.length() - 3);
             String start_time = "2014/05/02 " + temp;
             SimpleDateFormat sdf = new SimpleDateFormat("yyyy/MM/dd HH:mm:ss.SSSSSS");
             try {
@@ -159,8 +152,7 @@ public class WriteResponseTimeAnalyzer {
                             pendingSyscallTbl.put(entry.getThreadId(), entry);
                         }
                     }
-                }
-                else
+                } else
                     continue;
 
             } else { // if the syscall says *** resumed, we should match it to the previous unfinished syscall -- matching via thread ID
@@ -191,7 +183,7 @@ public class WriteResponseTimeAnalyzer {
             entry.setDuration(duration);
 
 
-            if(entry.getFd() == 0)
+            if (entry.getFd() == 0)
                 System.err.println(line);
             if (writeTbl.containsKey(entry.getFd())) {
                 writeTbl.get(entry.getFd()).add(entry);
@@ -211,12 +203,11 @@ public class WriteResponseTimeAnalyzer {
         int count = 0;
         double base = 0;
         for (SyscallEntry callEntry : calls) {
-            if(count == 0){
-               base = callEntry.getCallTime();
-                System.err.format("%f \n",base);
-               series.add(0, callEntry.getDuration());
-            }
-            else
+            if (count == 0) {
+                base = callEntry.getCallTime();
+                System.err.format("%f \n", base);
+                series.add(0, callEntry.getDuration());
+            } else
                 series.add(callEntry.getCallTime() - base, callEntry.getDuration());
             count++;
         }
