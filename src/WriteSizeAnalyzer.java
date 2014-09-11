@@ -1,49 +1,91 @@
-import org.jfree.chart.ChartFactory;
-import org.jfree.chart.ChartFrame;
-import org.jfree.chart.JFreeChart;
-import org.jfree.chart.plot.PlotOrientation;
-import org.jfree.data.xy.XYDataset;
-import org.jfree.data.xy.XYSeries;
-import org.jfree.data.xy.XYSeriesCollection;
-
+import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileNotFoundException;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
+import java.text.DecimalFormat;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import org.jfree.chart.ChartFactory;
+import org.jfree.chart.ChartFrame;
+import org.jfree.chart.JFreeChart;
+import org.jfree.chart.axis.ValueAxis;
+import org.jfree.chart.plot.PlotOrientation;
+import org.jfree.chart.plot.XYPlot;
+import org.jfree.data.xy.XYDataset;
+import org.jfree.data.xy.XYSeries;
+import org.jfree.data.xy.XYSeriesCollection;
+import org.jfree.util.ShapeUtilities;
 
-public class WriteResponseTimeAnalyzer {
+
+public class WriteSizeAnalyzer {
 
     private static int LINEFEED = 10;
     private static String SYSCALL_FUTEX = "futex";
     private static String SYSCALL_CLOCK = "clock_gettime";
     private static String RESUME = "resumed";
     private static String UNFINISH = "unfinished";
-    String fileName = "d:/share/datastore/9.9/strace-201409091000.log";
+    String fileName = "d:/share/datastore/strace_ems.log";
     float sum_time = 0;
     MappedByteBuffer buffer;
     HashMap<Integer, SyscallEntry> pendingSyscallTbl = new HashMap<Integer, SyscallEntry>();
-    HashMap<Integer, Set<SyscallEntry>> writeTbl = new HashMap<Integer, Set<SyscallEntry>>();
+    HashMap<Integer, List<SyscallEntry>> writeTbl = new HashMap<Integer, List<SyscallEntry>>();
+    
+    SimpleDateFormat sdf = new SimpleDateFormat("yyyy/MM/dd HH:mm:ss.SSSSSS");
+
 
     public static void main(String[] args) {
         long begin = System.currentTimeMillis();
-        WriteResponseTimeAnalyzer sa = new WriteResponseTimeAnalyzer();
+        WriteSizeAnalyzer sa = new WriteSizeAnalyzer();
 
         sa.readFileNIO();
         sa.calcDistribution();
-        sa.createScatterPlot();
+        //sa.createScatterPlot();
+        
+        sa.writeCsv();
         System.err.format("\ntotal memory used %.2f M\n", (float) (Runtime.getRuntime().totalMemory() / (1024 * 1024)));
 
         System.err.format("\ntotal time spent %.0f Seconds", (float) ((System.currentTimeMillis() - begin) / 1000));
     }
 
+    private void writeCsv(){
+    	double base = 0;
+    	int count = 0;
+    	 DecimalFormat df = new DecimalFormat("#.##########");
+        for(Map.Entry<Integer, List<SyscallEntry>> e :  writeTbl.entrySet())
+        {
+        	base = 0;
+        	count = 0;
+        	try {
+    			BufferedWriter bw = new BufferedWriter(new FileWriter("d:/share/datastore/" + e.getKey() + ".strace_ems.log"));
+    			for (SyscallEntry call : e.getValue()){
+    				if(count == 0 )
+    					base = call.getCallTime();
+    				//bw.write( call.getCallTime() - base + "," + call.getSize());
+    				bw.write( String.format("%10f %7d \n", call.getDuration() * 1000, call.getSize()));
+    				//bw.write(  df.format(call.getDuration() * 1000 * 1000/ call.getSize()) );
+    				count++;
+    		
+    			}
+    			bw.close();
+    		} catch (IOException ex) {
+    			// TODO Auto-generated catch block
+    			ex.printStackTrace();
+    		}
+        }
+    }
+    
     private void readFileNIO() {
         File f = new File(fileName);
 
@@ -117,7 +159,7 @@ public class WriteResponseTimeAnalyzer {
             String temp = line.substring(line.indexOf(32), syscall_index).trim();
             temp = temp.substring(0, temp.length() - 3);
             String start_time = "2014/05/02 " + temp;
-            SimpleDateFormat sdf = new SimpleDateFormat("yyyy/MM/dd HH:mm:ss.SSSSSS");
+            //SimpleDateFormat sdf = new SimpleDateFormat("yyyy/MM/dd HH:mm:ss.SSSSSS");
             try {
                 entry.setCallTime(sdf.parse(start_time).getTime());
             } catch (ParseException e) {
@@ -180,7 +222,9 @@ public class WriteResponseTimeAnalyzer {
 
             if (line.contains(UNFINISH))
                 continue;
-
+            
+            entry.setSize(Integer.valueOf(line.substring(line.lastIndexOf("=") + 1, line.lastIndexOf("<")).trim()));
+            
             float duration = Float.valueOf(line.substring(line.lastIndexOf("<") + 1, line.lastIndexOf(">")));
             entry.setDuration(duration);
 
@@ -190,7 +234,7 @@ public class WriteResponseTimeAnalyzer {
             if (writeTbl.containsKey(entry.getFd())) {
                 writeTbl.get(entry.getFd()).add(entry);
             } else {
-                Set<SyscallEntry> l = new TreeSet<SyscallEntry>();
+                List<SyscallEntry> l = new ArrayList<SyscallEntry>();
                 l.add(entry);
                 writeTbl.put(entry.getFd(), l);
             }
@@ -199,7 +243,7 @@ public class WriteResponseTimeAnalyzer {
 
     }
 
-    private XYDataset createDataset(Set<SyscallEntry> calls) {
+    private XYDataset createDataset(List<SyscallEntry> calls) {
         XYSeriesCollection result = new XYSeriesCollection();
         XYSeries series = new XYSeries("Random");
         int count = 0;
@@ -208,9 +252,9 @@ public class WriteResponseTimeAnalyzer {
             if (count == 0) {
                 base = callEntry.getCallTime();
                 System.err.format("%f \n", base);
-                series.add(0, callEntry.getDuration());
+                series.add(0, callEntry.getSize() );
             } else
-                series.add(callEntry.getCallTime() - base, callEntry.getDuration() * 1000);
+                series.add(callEntry.getCallTime() - base, callEntry.getSize());
             count++;
         }
         result.addSeries(series);
@@ -219,18 +263,23 @@ public class WriteResponseTimeAnalyzer {
 
     private void createScatterPlot() {
 
-        for (Map.Entry<Integer, Set<SyscallEntry>> e : writeTbl.entrySet()) {
+        for (Map.Entry<Integer, List<SyscallEntry>> e : writeTbl.entrySet()) {
             JFreeChart chart = ChartFactory.createScatterPlot(
-                    "write() response time", // chart title
+                    "Scatter Plot", // chart title
                     "X", // x axis label
-                    "Response Time in millisecond", // y axis label
+                    "write() size", // y axis label
                     createDataset(e.getValue()), // data  ***-----PROBLEM------***
                     PlotOrientation.VERTICAL,
                     true, // include legend
                     true, // tooltips
                     false // urls
             );
-
+            XYPlot xyPlot = chart.getXYPlot();
+            xyPlot.getRenderer().setSeriesShape(0, ShapeUtilities.createDiagonalCross(3, 1));
+            ValueAxis rangeAxis = xyPlot.getRangeAxis();
+ 
+            rangeAxis.setRange(0.0, 10000.0);
+             
             // create and display a frame...
             ChartFrame frame = new ChartFrame(e.getKey().toString(), chart);
             frame.pack();
@@ -242,5 +291,8 @@ public class WriteResponseTimeAnalyzer {
         Collections.sort(syscallCollections);
 
     }
+    
+    
+     
 }
 
