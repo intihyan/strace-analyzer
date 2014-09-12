@@ -8,11 +8,23 @@ with command "strace -ttT" as we heavily rely on the time spent in each system c
 
 
 
-If your application is heavy in network traffic, the tool  list the most noisy file descriptors for both inbound and outbound traffic.
+If your application is heavy in network traffic, the tool list the most noisy file descriptors for both inbound and outbound traffic.
 
 If your application is heavy in disk IO, the tool draws a graph showing the overral read()/write() response time trend for each file descriptor.
 
+system calls that we will focus on:
 
+*file system* 
+write
+read
+lseek
+stat
+fdatasync
+
+
+*socket*
+recvfrom()
+writev()
 
 
 ====
