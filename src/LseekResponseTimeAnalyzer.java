@@ -19,7 +19,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 
-public class WriteResponseTimeAnalyzer {
+public class LseekResponseTimeAnalyzer {
 
     private static int LINEFEED = 10;
     private static String SYSCALL_FUTEX = "futex";
@@ -30,11 +30,11 @@ public class WriteResponseTimeAnalyzer {
     float sum_time = 0;
     MappedByteBuffer buffer;
     HashMap<Integer, SyscallEntry> pendingSyscallTbl = new HashMap<Integer, SyscallEntry>();
-    HashMap<Integer, Set<SyscallEntry>> writeTbl = new HashMap<Integer, Set<SyscallEntry>>();
+    HashMap<Integer, Set<SyscallEntry>> lseekTbl = new HashMap<Integer, Set<SyscallEntry>>();
 
     public static void main(String[] args) {
         long begin = System.currentTimeMillis();
-        WriteResponseTimeAnalyzer sa = new WriteResponseTimeAnalyzer();
+        LseekResponseTimeAnalyzer sa = new LseekResponseTimeAnalyzer();
 
         sa.readFileNIO();
         sa.calcDistribution();
@@ -132,7 +132,7 @@ public class WriteResponseTimeAnalyzer {
                 }
                 entry.setSyscallName(line.substring(syscall_index, syscall_end_index));
 
-                if (entry.getSyscallName().equals("write")) {
+                if (entry.getSyscallName().equals("lseek")) {
 
                     int syscall_size_index = syscall_end_index;
                     while (line.charAt(syscall_size_index) != ',') {
@@ -160,7 +160,7 @@ public class WriteResponseTimeAnalyzer {
                     syscall_end_index++;
                 }
                 entry.setSyscallName(line.substring(syscall_index, syscall_end_index));
-                if (!entry.getSyscallName().equals("write")) {
+                if (!entry.getSyscallName().equals("lseek")) {
                     continue;
                 }
                  
@@ -187,12 +187,12 @@ public class WriteResponseTimeAnalyzer {
 
             if (entry.getFd() == 0)
                 System.err.println(line);
-            if (writeTbl.containsKey(entry.getFd())) {
-                writeTbl.get(entry.getFd()).add(entry);
+            if (lseekTbl.containsKey(entry.getFd())) {
+                lseekTbl.get(entry.getFd()).add(entry);
             } else {
                 Set<SyscallEntry> l = new TreeSet<SyscallEntry>();
                 l.add(entry);
-                writeTbl.put(entry.getFd(), l);
+                lseekTbl.put(entry.getFd(), l);
             }
         }
 
@@ -219,9 +219,9 @@ public class WriteResponseTimeAnalyzer {
 
     private void createScatterPlot() {
 
-        for (Map.Entry<Integer, Set<SyscallEntry>> e : writeTbl.entrySet()) {
+        for (Map.Entry<Integer, Set<SyscallEntry>> e : lseekTbl.entrySet()) {
             JFreeChart chart = ChartFactory.createScatterPlot(
-                    "write() response time", // chart title
+                    "lseek() response time", // chart title
                     "X", // x axis label
                     "Response Time in millisecond", // y axis label
                     createDataset(e.getValue()), // data  ***-----PROBLEM------***

@@ -14,9 +14,11 @@ public class StraceAnalyzer {
     private static int LINEFEED = 10;
     private static String SYSCALL_FUTEX = "futex";
     private static String SYSCALL_CLOCK = "clock_gettime";
+    private static String EAGAIN = "EAGAIN";
+    private static String ETIMEDOUT = "ETIMEDOUT";
     private static String RESUME = "resumed";
     private static String UNFINISH = "unfinished";
-    String fileName = "/Users/yanlinfeng/strace.log";
+    String fileName = "d:/share/datastore/strace4.log";
     float sum_time = 0;
     MappedByteBuffer buffer;
     HashMap<String, List<SyscallEntry>> map = new HashMap<String, List<SyscallEntry>>();
@@ -88,7 +90,8 @@ public class StraceAnalyzer {
         int threadId = 0;
         while ((line = readLineFromBuffer()) != null) {
 
-
+        	if(line.indexOf(SYSCALL_FUTEX)!= -1 || line.indexOf(SYSCALL_CLOCK) != -1 || line.indexOf(EAGAIN) != -1 || line.indexOf(ETIMEDOUT) != -1 )
+        		continue;
             SyscallEntry entry = new SyscallEntry();
             String syscallName;
 
@@ -126,7 +129,7 @@ public class StraceAnalyzer {
 
                     if (line.contains(UNFINISH)) {
                         if (pendingSyscallTbl.containsKey(entry.getThreadId())) {
-                            System.err.println("Error");
+                            System.err.println("Error : " + line );
                         } else {
                             pendingSyscallTbl.put(entry.getThreadId(), entry);
                         }
@@ -224,7 +227,7 @@ public class StraceAnalyzer {
 
             sort(e.getValue());
             for (int i = 0; i < (e.getValue().size() < 10 ? e.getValue().size() : 10); i++) {
-                top.append(e.getKey() + " --- " + String.format("%.5f", e.getValue().get(i).getDuration()));
+                top.append(e.getKey() + " --- " + String.format("%.7f", e.getValue().get(i).getDuration()));
                 top.append("\n");
             }
 
@@ -284,55 +287,6 @@ public class StraceAnalyzer {
     private void sort(List<SyscallEntry> syscallCollections) {
         Collections.sort(syscallCollections);
 
-    }
-}
-
-class ReadWriteSizeContainer implements Comparable<ReadWriteSizeContainer> {
-    int fd;
-    int size;
-
-    ReadWriteSizeContainer(int fd, int size) {
-        this.fd = fd;
-        this.size = size;
-    }
-
-    int getFd() {
-        return fd;
-    }
-
-    void setFd(int fd) {
-        this.fd = fd;
-    }
-
-    int getSize() {
-        return size;
-    }
-
-    void setSize(int size) {
-        this.size = size;
-    }
-
-    @Override
-    public int compareTo(ReadWriteSizeContainer readWriteSizeContainer) {
-        if (readWriteSizeContainer.getSize() < size)
-            return 0;  //To change body of implemented methods use File | Settings | File Templates.
-        else
-            return 1;
-    }
-
-    @Override
-    public String toString() {
-        return fd + " -- " + size;
-    }
-
-    @Override
-    public boolean equals(Object obj){
-        if(obj == null)
-            return false;
-        if( ((ReadWriteSizeContainer)obj).getFd() == (this.fd))
-            return true;
-        else
-            return false;
     }
 }
 

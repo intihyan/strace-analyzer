@@ -5,8 +5,18 @@ public class SyscallEntry implements Comparable<SyscallEntry> {
     int size;
     int threadId;
     float duration;
+    
+    String statFileName;
 
-    public double getCallTime() {
+    public String getStatFileName() {
+		return statFileName;
+	}
+
+	public void setStatFileName(String statFileName) {
+		this.statFileName = statFileName;
+	}
+
+	public double getCallTime() {
         return callTime;
     }
 

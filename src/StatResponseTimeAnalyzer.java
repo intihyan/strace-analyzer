@@ -19,22 +19,22 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 
-public class WriteResponseTimeAnalyzer {
+public class StatResponseTimeAnalyzer {
 
     private static int LINEFEED = 10;
     private static String SYSCALL_FUTEX = "futex";
     private static String SYSCALL_CLOCK = "clock_gettime";
     private static String RESUME = "resumed";
     private static String UNFINISH = "unfinished";
-    String fileName = "d:/share/datastore/9.9/strace-201409091000.log";
+    String fileName = "d:/share/datastore/strace_ems.log";
     float sum_time = 0;
     MappedByteBuffer buffer;
     HashMap<Integer, SyscallEntry> pendingSyscallTbl = new HashMap<Integer, SyscallEntry>();
-    HashMap<Integer, Set<SyscallEntry>> writeTbl = new HashMap<Integer, Set<SyscallEntry>>();
+    HashMap<String, Set<SyscallEntry>> statTbl = new HashMap<String, Set<SyscallEntry>>();
 
     public static void main(String[] args) {
         long begin = System.currentTimeMillis();
-        WriteResponseTimeAnalyzer sa = new WriteResponseTimeAnalyzer();
+        StatResponseTimeAnalyzer sa = new StatResponseTimeAnalyzer();
 
         sa.readFileNIO();
         sa.calcDistribution();
@@ -132,14 +132,14 @@ public class WriteResponseTimeAnalyzer {
                 }
                 entry.setSyscallName(line.substring(syscall_index, syscall_end_index));
 
-                if (entry.getSyscallName().equals("write")) {
+                if (entry.getSyscallName().equals("stat")) {
 
-                    int syscall_size_index = syscall_end_index;
-                    while (line.charAt(syscall_size_index) != ',') {
-                        syscall_size_index++;
+                    int stat_filename__index = syscall_end_index + 2;
+                    while (line.charAt(stat_filename__index) != '"') {
+                    	stat_filename__index++;
                     }
-                    int fd = Integer.valueOf(line.substring(syscall_end_index + 1, syscall_size_index));
-                    entry.setFd(fd);
+                    String stat_file_name = line.substring(syscall_end_index + 2, stat_filename__index);
+                    entry.setStatFileName(stat_file_name);
                     
 
 
@@ -160,23 +160,22 @@ public class WriteResponseTimeAnalyzer {
                     syscall_end_index++;
                 }
                 entry.setSyscallName(line.substring(syscall_index, syscall_end_index));
-                if (!entry.getSyscallName().equals("write")) {
+                if (!entry.getSyscallName().equals("stat")) {
                     continue;
                 }
                  
                 if (pendingSyscallTbl.containsKey(entry.getThreadId())) {
                 	
-                    entry.setFd(pendingSyscallTbl.get(entry.getThreadId()).getFd());
+                    entry.setStatFileName(pendingSyscallTbl.get(entry.getThreadId()).getStatFileName());
                     pendingSyscallTbl.remove(entry.getThreadId());
-                    //System.err.format("Matched resume with unfinished syscall, fd %s size %d\n",entry.getFd(),entry.getSize());
+                    //System.err.format("Matched resume with unfinished syscall, fd %s size %d\n",entry.getStatFileName(),entry.getSize());
                   
                 } else {
                     System.err.println("Cannot find the matching unfinished syscall");
                 }
             }
             
-            if ( entry.getFd() <  6 )
-        		continue;
+             
 
             if (line.contains(UNFINISH))
                 continue;
@@ -185,14 +184,14 @@ public class WriteResponseTimeAnalyzer {
             entry.setDuration(duration);
 
 
-            if (entry.getFd() == 0)
+            if (entry.getStatFileName() == null | entry.getStatFileName().equals(""))
                 System.err.println(line);
-            if (writeTbl.containsKey(entry.getFd())) {
-                writeTbl.get(entry.getFd()).add(entry);
+            if (statTbl.containsKey(entry.getStatFileName())) {
+                statTbl.get(entry.getStatFileName()).add(entry);
             } else {
                 Set<SyscallEntry> l = new TreeSet<SyscallEntry>();
                 l.add(entry);
-                writeTbl.put(entry.getFd(), l);
+                statTbl.put(entry.getStatFileName(), l);
             }
         }
 
@@ -219,9 +218,9 @@ public class WriteResponseTimeAnalyzer {
 
     private void createScatterPlot() {
 
-        for (Map.Entry<Integer, Set<SyscallEntry>> e : writeTbl.entrySet()) {
+        for (Map.Entry<String, Set<SyscallEntry>> e : statTbl.entrySet()) {
             JFreeChart chart = ChartFactory.createScatterPlot(
-                    "write() response time", // chart title
+                    "Scatter Plot", // chart title
                     "X", // x axis label
                     "Response Time in millisecond", // y axis label
                     createDataset(e.getValue()), // data  ***-----PROBLEM------***
