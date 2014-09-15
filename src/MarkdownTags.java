@@ -6,4 +6,8 @@
  * To change this template use File | Settings | File Templates.
  */
 public class MarkdownTags {
+    public static final String CODEBLOCK = "    ";
+
+    public static final String QUOTE = ">";
+    public static String IMAGE = "![%s](%s)";
 }
