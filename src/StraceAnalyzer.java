@@ -1,7 +1,11 @@
 import org.jfree.chart.ChartFactory;
 import org.jfree.chart.ChartUtilities;
 import org.jfree.chart.JFreeChart;
-import org.jfree.chart.plot.PlotOrientation;
+import org.jfree.chart.axis.DateAxis;
+import org.jfree.chart.plot.XYPlot;
+import org.jfree.data.time.Millisecond;
+import org.jfree.data.time.TimeSeries;
+import org.jfree.data.time.TimeSeriesCollection;
 import org.jfree.data.xy.XYDataset;
 import org.jfree.data.xy.XYSeries;
 import org.jfree.data.xy.XYSeriesCollection;
@@ -21,6 +25,7 @@ public class StraceAnalyzer {
     private static String SYSCALL_FUTEX = "futex";
     private static String SYSCALL_CLOCK = "clock_gettime";
     private static String SYSCALL_RESTART = "restart_syscall";
+    private static String SYSCALL_MADVISE = "madvise";
     private static String SYSCALL_LSEEK = "lseek";
     private static String SYSCALL_FDATASYNC = "fdatasync";
     private static String SYSCALL_FCNTL = "fcntl";
@@ -40,6 +45,7 @@ public class StraceAnalyzer {
     private static String UNFINISH = "unfinished";
     String outputDir = null;
     String straceLogName = null;
+    String straceLogPath = null;
     int fileNameIndex = 0;
     float sum_time = 0;
     MappedByteBuffer buffer;
@@ -54,6 +60,8 @@ public class StraceAnalyzer {
     HashMap<String, Set<SyscallEntry>> statTbl = new HashMap<String, Set<SyscallEntry>>();
     StringBuilder mdContent = new StringBuilder();
     StringBuilder topSyscallStr = new StringBuilder();
+    SimpleDateFormat sdf = new SimpleDateFormat(
+            "yyyy/MM/dd HH:mm:ss.SSS");
 
     public StraceAnalyzer() {
         InputStream inputStream = StraceAnalyzer.class.getResourceAsStream("config.properties");
@@ -64,7 +72,17 @@ public class StraceAnalyzer {
             e.printStackTrace();
         }
         outputDir = prop.getProperty("outputdir");
-        straceLogName = prop.getProperty("stracelogname");
+        if (!new File(outputDir).exists()) {
+            System.err.format("File Directory %s does not exist\n", outputDir);
+            System.exit(-1);
+        }
+
+        straceLogPath = prop.getProperty("stracelogpath");
+        if (!new File(straceLogPath).exists()) {
+            System.err.format("strace log %s does not exist\n", straceLogName);
+            System.exit(-1);
+        }
+        straceLogName = new File(straceLogPath).getName();
     }
 
     public static void main(String[] args) {
@@ -75,23 +93,26 @@ public class StraceAnalyzer {
         sa.calcDistribution();
         sa.prettyPrint();
 
-        sa.createScatterPlotWrite();
-        sa.createScatterPlotStat();
-        sa.createScatterPlotRead();
-        sa.createScatterPlotLseek();
-        sa.createScatterPlotFsync();
-
+        sa.createPlots();
         sa.renderMarkdown();
-        /*
+
         System.err.format("\ntotal memory used %.2f M\n", (float) (Runtime
-				.getRuntime().totalMemory() / (1024 * 1024)));
-		System.err.format("\ntotal time spent %.0f Seconds",
-				(float) ((System.currentTimeMillis() - begin) / 1000));
-		*/
+                .getRuntime().totalMemory() / (1024 * 1024)));
+        System.err.format("\ntotal time spent %.0f Seconds",
+                (float) ((System.currentTimeMillis() - begin) / 1000));
+
+    }
+
+    private void createPlots() {
+        createScatterPlot(writeTbl, " write", "_write.jpg");
+        createScatterPlot(readTbl, " read", "_read.jpg");
+        createScatterPlot(fsyncTbl, " fdatasync", "_fdatasync.jpg");
+        createScatterPlot(lseekTbl, " lseek", "_lseek.jpg");
+        createScatterPlotStat();
     }
 
     private void readFileNIO() {
-        File f = new File(straceLogName);
+        File f = new File(straceLogPath);
 
         try {
             FileChannel fc = new RandomAccessFile(f, "rw").getChannel();
@@ -142,6 +163,7 @@ public class StraceAnalyzer {
         while ((line = readLineFromBuffer()) != null) {
             if (line.indexOf(SYSCALL_RESTART) != -1
                     || line.indexOf(SYSCALL_FUTEX) != -1
+                    || line.indexOf(SYSCALL_MADVISE) != -1
                     || line.indexOf(SYSCALL_CLOCK) != -1
                     || line.indexOf(SYSCALL_EPOLLWAIT) != -1
                     || line.indexOf(SYSCALL_EPOLLCTL) != -1
@@ -176,12 +198,11 @@ public class StraceAnalyzer {
 
             m.end();
 
-            String temp = line.substring(line.indexOf(32), syscall_index)
-                    .trim();
-            temp = temp.substring(0, temp.length() - 3);
-            String start_time = "2014/05/02 " + temp;
-            SimpleDateFormat sdf = new SimpleDateFormat(
-                    "yyyy/MM/dd HH:mm:ss.SSSSSS");
+            String call_time = line.split(" +")[1];
+            call_time = call_time.substring(0, call_time.length() - 3);  // We can only parse time with millisecond resolution
+
+            String start_time = "2014/05/02 " + call_time;
+
             try {
                 entry.setCallTime(sdf.parse(start_time).getTime());
             } catch (ParseException e) {
@@ -205,6 +226,8 @@ public class StraceAnalyzer {
 
                         entry.setStatFileName(pendingSyscallTbl.get(
                                 entry.getThreadId()).getStatFileName());
+                        entry.setCallTime(pendingSyscallTbl.get(entry.getThreadId()).getCallTime());
+
                         pendingSyscallTbl.remove(entry.getThreadId());
                     } else {
                         System.err
@@ -222,6 +245,7 @@ public class StraceAnalyzer {
                     if (pendingSyscallTbl.containsKey(entry.getThreadId())) {
                         entry.setFd(pendingSyscallTbl.get(entry.getThreadId())
                                 .getFd());
+                        entry.setCallTime(pendingSyscallTbl.get(entry.getThreadId()).getCallTime());
                         pendingSyscallTbl.remove(entry.getThreadId());
                         // System.err.format("Matched resume with unfinished syscall, %s(%d \n",entry.getSyscallName(),entry.getFd());
                     } else {
@@ -415,7 +439,7 @@ public class StraceAnalyzer {
         String calls = "calls";
         String syscall = "syscall";
 
-        //right side aligned
+
         mdContent.append(String.format("%s%6s %11s %9s %16s\n", MarkdownTags.CODEBLOCK, time, seconds, calls, syscall));
 
         mdContent.append(String.format("%s------ ----------- --------- ----------------\n", MarkdownTags.CODEBLOCK));
@@ -482,6 +506,12 @@ public class StraceAnalyzer {
 
         mdContent.append(" \n\n Syscall response time top 10 \n\n");
         mdContent.append(topSyscallStr);
+
+        mdContent.append("```\n The following sections try to illustrate in a graph of how the VFS system call performs, \n those calls are typically sources of slow. " +
+                " The targets are the datastore files used by EMS including \n" +
+                " async-msgs.db | sync-msgs.db | meta.db \n" +
+                " From strace it is not possible to find the exact file name, \n one have to run lsof -p <pid> | grep db to find out which fd corresponds to which file \n```\n");
+
     }
 
     private void renderMarkdown() {
@@ -494,55 +524,23 @@ public class StraceAnalyzer {
         }
     }
 
-    private XYDataset createDatasetWrite(Set<SyscallEntry> calls) {
-
-        XYSeriesCollection result = new XYSeriesCollection();
-        XYSeries series = new XYSeries("Random");
-        int count = 0;
-        double base = 0;
-        for (SyscallEntry callEntry : calls) {
-            if (count == 0) {
-                base = callEntry.getCallTime();
-                series.add(0, callEntry.getDuration());
-            } else
-                series.add(callEntry.getCallTime() - base,
-                        callEntry.getDuration() * 1000);
-            count++;
-        }
-        result.addSeries(series);
-        return result;
-    }
-
-    private void createScatterPlotWrite() {
-
-        for (Map.Entry<Integer, Set<SyscallEntry>> e : writeTbl.entrySet()) {
-            System.out.format("Number of writes in this FD %d: %d \n",
+    private void createScatterPlot(HashMap<Integer, Set<SyscallEntry>> dataSource, String yAxisLabel, String fileSuffix) {
+        for (Map.Entry<Integer, Set<SyscallEntry>> e : dataSource.entrySet()) {
+            System.out.format("Number of %s in this FD %d: %d \n", yAxisLabel,
                     e.getKey(), e.getValue().size());
-
-            JFreeChart chart = ChartFactory.createScatterPlot(
-                    "FD:" + e.getKey() + " write() response time", // chart
-                    // title
-                    "X", // x axis label
-                    "Response Time in millisecond", // y axis label
-                    createDatasetWrite(e.getValue()), // data
-                    // ***-----PROBLEM------***
-                    PlotOrientation.VERTICAL, true, // include legend
-                    true, // tooltips
-                    false // urls
-            );
-
-            // create and display a frame...
-			/*
-			 * ChartFrame frame = new ChartFrame(e.getKey().toString(), chart);
-			 * frame.pack(); frame.setVisible(true);
-			 */
-
+            JFreeChart chart = ChartFactory.createTimeSeriesChart("FD:" + e.getKey() + yAxisLabel + "() response time", "time", "Response Time in Millisecond", createDataset(e.getValue()));
+            XYPlot plot = (XYPlot) chart.getPlot();
+            DateAxis axis = (DateAxis) plot.getDomainAxis();
+            axis.setDateFormatOverride(new SimpleDateFormat("HH:mm:ss"));
             try {
-                String fileName = fileNameIndex++ + "_write.jpg";
-                String filePath = outputDir + fileName;
-                ChartUtilities.saveChartAsJPEG(new File(filePath), chart, 1024,
+                File imgDir = new File(outputDir + straceLogName);
+                if (!imgDir.exists())
+                    imgDir.mkdirs();
+
+                String imgFileName = fileNameIndex++ + fileSuffix;
+                ChartUtilities.saveChartAsJPEG(new File(imgDir, imgFileName), chart, 1024,
                         768, null);
-                mdContent.append(String.format(MarkdownTags.IMAGE, fileName, filePath));
+                mdContent.append(String.format(MarkdownTags.IMAGE, imgFileName, straceLogName + "/" + imgFileName));
             } catch (IOException e1) {
                 // TODO Auto-generated catch block
                 e1.printStackTrace();
@@ -550,177 +548,24 @@ public class StraceAnalyzer {
         }
     }
 
-    private XYDataset createDatasetRead(Set<SyscallEntry> calls) {
+    private XYDataset createDataset(Set<SyscallEntry> calls) {
+        TimeSeriesCollection result = new TimeSeriesCollection();
+        TimeSeries series = new TimeSeries("");
 
-        XYSeriesCollection result = new XYSeriesCollection();
-        XYSeries series = new XYSeries("Random");
-        int count = 0;
-        double base = 0;
         for (SyscallEntry callEntry : calls) {
-            if (count == 0) {
-                base = callEntry.getCallTime();
-                series.add(0, callEntry.getDuration());
-            } else
-                series.add(callEntry.getCallTime() - base,
-                        callEntry.getDuration() * 1000);
-            count++;
+            series.addOrUpdate(new Millisecond(new Date(callEntry.getCallTime())),
+                    callEntry.getDuration() * 1000);
         }
         result.addSeries(series);
         return result;
     }
 
-    private void createScatterPlotRead() {
-
-        for (Map.Entry<Integer, Set<SyscallEntry>> e : readTbl.entrySet()) {
-            System.out.format("Number of read in this FD %d: %d \n",
-                    e.getKey(), e.getValue().size());
-
-            JFreeChart chart = ChartFactory.createScatterPlot(
-                    "FD:" + e.getKey() + " read() response time", // chart title
-                    "X", // x axis label
-                    "Response Time in millisecond", // y axis label
-                    createDatasetRead(e.getValue()), // data
-                    // ***-----PROBLEM------***
-                    PlotOrientation.VERTICAL, true, // include legend
-                    true, // tooltips
-                    false // urls
-            );
-
-            // create and display a frame...
-			/*
-			 * ChartFrame frame = new ChartFrame(e.getKey().toString(), chart);
-			 * frame.pack(); frame.setVisible(true);
-			 */
-
-            try {
-                String fileName = fileNameIndex++ + "_read.jpg";
-                String filePath = outputDir + fileName;
-                ChartUtilities.saveChartAsJPEG(new File(fileName), chart, 1024,
-                        768, null);
-                mdContent.append(String.format(MarkdownTags.IMAGE, fileName, filePath));
-            } catch (IOException e1) {
-                // TODO Auto-generated catch block
-                e1.printStackTrace();
-            }
-        }
-    }
-
-    private XYDataset createDatasetLseek(Set<SyscallEntry> calls) {
-
+    /**
+     * not used for now as we output TimeSeries plot, in case of switching to scatter plot we can use this method to provide dataset
+     */
+    private XYDataset createDatasetNumberDomain(Set<SyscallEntry> calls) {
         XYSeriesCollection result = new XYSeriesCollection();
-        XYSeries series = new XYSeries("Random");
-        int count = 0;
-        double base = 0;
-        for (SyscallEntry callEntry : calls) {
-            if (count == 0) {
-                base = callEntry.getCallTime();
-                series.add(0, callEntry.getDuration());
-            } else
-                series.add(callEntry.getCallTime() - base,
-                        callEntry.getDuration() * 1000);
-            count++;
-        }
-        result.addSeries(series);
-        return result;
-    }
-
-    private void createScatterPlotLseek() {
-
-        for (Map.Entry<Integer, Set<SyscallEntry>> e : lseekTbl.entrySet()) {
-            System.out.format("Number of lseek in this FD %d: %d \n",
-                    e.getKey(), e.getValue().size());
-
-            JFreeChart chart = ChartFactory.createScatterPlot(
-                    "FD:" + e.getKey() + " lseek() response time", // chart title
-                    "X", // x axis label
-                    "Response Time in millisecond", // y axis label
-                    createDatasetLseek(e.getValue()), // data
-                    // ***-----PROBLEM------***
-                    PlotOrientation.VERTICAL, true, // include legend
-                    true, // tooltips
-                    false // urls
-            );
-
-            // create and display a frame...
-			/*
-			 * ChartFrame frame = new ChartFrame(e.getKey().toString(), chart);
-			 * frame.pack(); frame.setVisible(true);
-			 */
-
-            try {
-                String fileName = fileNameIndex++ + "_lseek.jpg";
-                String filePath = outputDir + fileName;
-                ChartUtilities.saveChartAsJPEG(new File(filePath), chart, 1024,
-                        768, null);
-
-                mdContent.append(String.format(MarkdownTags.IMAGE, fileName, filePath));
-            } catch (IOException e1) {
-                // TODO Auto-generated catch block
-                e1.printStackTrace();
-            }
-        }
-    }
-
-    private XYDataset createDatasetFsync(Set<SyscallEntry> calls) {
-
-        XYSeriesCollection result = new XYSeriesCollection();
-        XYSeries series = new XYSeries("Random");
-        int count = 0;
-        double base = 0;
-        for (SyscallEntry callEntry : calls) {
-            if (count == 0) {
-                base = callEntry.getCallTime();
-                series.add(0, callEntry.getDuration());
-            } else
-                series.add(callEntry.getCallTime() - base,
-                        callEntry.getDuration() * 1000);
-            count++;
-        }
-        result.addSeries(series);
-        return result;
-    }
-
-    private void createScatterPlotFsync() {
-
-        for (Map.Entry<Integer, Set<SyscallEntry>> e : fsyncTbl.entrySet()) {
-            System.out.format("Number of fdatasync in this FD %d: %d \n",
-                    e.getKey(), e.getValue().size());
-
-            JFreeChart chart = ChartFactory.createScatterPlot(
-                    "FD:" + e.getKey() + " fdatasync() response time", // chart title
-                    "X", // x axis label
-                    "Response Time in millisecond", // y axis label
-                    createDatasetFsync(e.getValue()), // data
-                    // ***-----PROBLEM------***
-                    PlotOrientation.VERTICAL, true, // include legend
-                    true, // tooltips
-                    false // urls
-            );
-
-            // create and display a frame...
-			/*
-			 * ChartFrame frame = new ChartFrame(e.getKey().toString(), chart);
-			 * frame.pack(); frame.setVisible(true);
-			 */
-
-            try {
-                String fileName = fileNameIndex++ + "_fdatasync.jpg";
-                String filePath = outputDir + fileName;
-                ChartUtilities.saveChartAsJPEG(new File(filePath), chart, 1024,
-                        768, null);
-
-
-                mdContent.append(String.format(MarkdownTags.IMAGE, fileName, filePath));
-            } catch (IOException e1) {
-                // TODO Auto-generated catch block
-                e1.printStackTrace();
-            }
-        }
-    }
-
-    private XYDataset createDatasetStat(Set<SyscallEntry> calls) {
-        XYSeriesCollection result = new XYSeriesCollection();
-        XYSeries series = new XYSeries("Random");
+        XYSeries series = new XYSeries("");
         int count = 0;
         double base = 0;
         for (SyscallEntry callEntry : calls) {
@@ -739,21 +584,11 @@ public class StraceAnalyzer {
     private void createScatterPlotStat() {
 
         for (Map.Entry<String, Set<SyscallEntry>> e : statTbl.entrySet()) {
-            JFreeChart chart = ChartFactory.createScatterPlot(e.getKey()
-                    + " stat() response", // chart
-                    // title
-                    "X", // x axis label
-                    "Response Time in millisecond", // y axis label
-                    createDatasetStat(e.getValue()), // data
-                    // ***-----PROBLEM------***
-                    PlotOrientation.VERTICAL, true, // include legend
-                    true, // tooltips
-                    false // urls
-            );
+            JFreeChart chart = ChartFactory.createTimeSeriesChart(e.getKey() + " stat() response time", "time", "Response time in Millisecond", createDataset(e.getValue()));
 
             // create and display a frame...
-			/*
-			 * ChartFrame frame = new ChartFrame(e.getKey().toString(), chart);
+            /*
+             * ChartFrame frame = new ChartFrame(e.getKey().toString(), chart);
 			 * frame.pack(); frame.setVisible(true);
 			 */
             try {
