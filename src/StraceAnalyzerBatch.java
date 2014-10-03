@@ -19,7 +19,7 @@ import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-public class StraceAnalyzer {
+public class StraceAnalyzerBatch {
 
     private static int LINEFEED = 10;
     private static String SYSCALL_FUTEX = "futex";
@@ -50,6 +50,7 @@ public class StraceAnalyzer {
     String outputDir = null;
     String straceLogName = null;
     String straceLogPath = null;
+    String straceDirectoryPath = null;
     int fileNameIndex = 0;
     float sum_time = 0;
     MappedByteBuffer buffer;
@@ -68,7 +69,8 @@ public class StraceAnalyzer {
             "yyyy/MM/dd HH:mm:ss.SSS");
     File imgDir = null;
 
-    public StraceAnalyzer() {
+
+    public StraceAnalyzerBatch() {
         Properties prop = new Properties();
         FileInputStream file = null;
 
@@ -100,34 +102,69 @@ public class StraceAnalyzer {
             System.err.format("Report will be created in %s \n", outputDir);
         }
 
-        straceLogPath = prop.getProperty("stracelogpath");
-        if (!new File(straceLogPath).exists()) {
-            System.err.format("strace log %s does not exist\n", straceLogName);
+        straceDirectoryPath = prop.getProperty("stracelogpath");
+        if (!new File(straceDirectoryPath).exists() || !new File(straceDirectoryPath).isDirectory()) {
+            System.err.format("strace log %s does not exist, or is not a directory since we are in batch mode\n", straceDirectoryPath);
             System.exit(-1);
         } else {
-            System.err.format("reading strace log from %s \n", straceLogPath);
+            System.err.format("reading strace log from directory: %s \n", straceDirectoryPath);
         }
-        straceLogName = new File(straceLogPath).getName();
+        //straceLogName = new File(straceLogPath).getName();
 
-        imgDir = new File(outputDir, straceLogName);
+
     }
 
     public static void main(String[] args) {
         long begin = System.currentTimeMillis();
-        StraceAnalyzer sa = new StraceAnalyzer();
 
-        sa.readFileNIO();
-        sa.calcDistribution();
-        sa.prettyPrint();
+        StraceAnalyzerBatch sa = new StraceAnalyzerBatch();
 
-        sa.createPlots();
-        sa.renderMarkdown();
+        sa.batchAnalyze();
+
 
         System.err.format("\ntotal memory used %.2f M\n", (float) (Runtime
                 .getRuntime().totalMemory() / (1024 * 1024)));
         System.err.format("\ntotal time spent %.0f Seconds \n",
                 (float) ((System.currentTimeMillis() - begin) / 1000));
 
+    }
+
+    private void clear() {
+        map = new HashMap<String, List<SyscallEntry>>();
+        pendingSyscallTbl = new HashMap<Integer, SyscallEntry>();
+        writevTbl = new HashMap<Integer, List<SyscallEntry>>();
+        recvfromTbl = new HashMap<Integer, List<SyscallEntry>>();
+        writeTbl = new HashMap<Integer, Set<SyscallEntry>>();
+        readTbl = new HashMap<Integer, Set<SyscallEntry>>();
+        lseekTbl = new HashMap<Integer, Set<SyscallEntry>>();
+        fsyncTbl = new HashMap<Integer, Set<SyscallEntry>>();
+        statTbl = new HashMap<String, Set<SyscallEntry>>();
+        mdContent = new StringBuilder();
+        topSyscallStr = new StringBuilder();
+
+        sum_time = 0;
+        fileNameIndex = 0;
+    }
+
+    private void batchAnalyze() {
+
+        for (String currentLogFileName : new File(straceDirectoryPath).list()) {
+            if (new File(straceLogPath, currentLogFileName).isDirectory())
+                continue;
+            else {
+                straceLogName = currentLogFileName;
+                straceLogPath = new File(straceDirectoryPath, currentLogFileName).getAbsolutePath();
+                imgDir = new File(outputDir, currentLogFileName);
+            }
+
+            this.readFileNIO();
+            this.calcDistribution();
+            this.prettyPrint();
+
+            this.createPlots();
+            this.renderMarkdown();
+            this.clear();
+        }
     }
 
     private void createPlots() {

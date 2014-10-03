@@ -26,10 +26,12 @@ class ReadWriteSizeContainer implements Comparable<ReadWriteSizeContainer> {
 
     @Override
     public int compareTo(ReadWriteSizeContainer readWriteSizeContainer) {
-        if (readWriteSizeContainer.getSize() < size)
-            return 0;  //To change body of implemented methods use File | Settings | File Templates.
-        else
+        if (readWriteSizeContainer.getSize() < this.size)
+            return -1;  //To change body of implemented methods use File | Settings | File Templates.
+        else if (readWriteSizeContainer.getSize() > this.size)
             return 1;
+        else
+            return 0;
     }
 
     @Override
@@ -38,10 +40,10 @@ class ReadWriteSizeContainer implements Comparable<ReadWriteSizeContainer> {
     }
 
     @Override
-    public boolean equals(Object obj){
-        if(obj == null)
+    public boolean equals(Object obj) {
+        if (obj == null)
             return false;
-        if( ((ReadWriteSizeContainer)obj).getFd() == (this.fd))
+        if (((ReadWriteSizeContainer) obj).getFd() == (this.fd))
             return true;
         else
             return false;

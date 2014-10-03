@@ -66,9 +66,15 @@ public class SyscallEntry implements Comparable<SyscallEntry> {
 
     @Override
     public int compareTo(SyscallEntry syscallEntry) {
-        if (this.duration < syscallEntry.duration)
+        if (this.duration < syscallEntry.getDuration())
             return 1;  //To change body of implemented methods use File | Settings | File Templates.
-        else
+        else if (this.duration > syscallEntry.getDuration())
             return -1;
+        else
+            return 0;
+    }
+
+    public String toString() {
+        return String.format("ThreadID: %s  SyscallName: %s", this.threadId, this.syscallName);
     }
 }
