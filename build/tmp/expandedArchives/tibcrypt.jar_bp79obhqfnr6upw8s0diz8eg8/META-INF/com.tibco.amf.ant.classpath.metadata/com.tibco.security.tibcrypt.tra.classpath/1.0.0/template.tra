@@ -1,0 +1,72 @@
+# Copyright (c) 2008-2009 TIBCO Software Inc.
+# All Rights Reserved.
+#
+# This software is the confidential and proprietary information of
+# TIBCO Software Inc.
+#
+
+
+
+# ==============================================================================
+# Common Variables:  Modify these as needed.
+# ==============================================================================
+tibco.env.PSP=%PS%
+tibco.env.TIB_HOME=%TIBCO_HOME_ESC%
+tibco.env.TIB_UDDI_SERVER_HOME=%TIBCO_UDDI_SERVER_HOME_ESC%
+tibco.env.TIB_JAVA_HOME=%TIBCO_JAVA_HOME_ESC%
+tibco.env.JVM_LIB_PATH=%TIBCO_JVM_LIB_CLIENT_ESC%
+tibco.env.JVM_LIB_DIR=%TIBCO_JVM_LIB_DIR_ESC%
+# ==============================================================================
+# Optional Variables:  Modify and uncomment these as needed.
+# ==============================================================================
+
+# Uncomment the following variable to pause at application launch.  This is 
+# useful with the remote debugging binding above to give you time at application 
+# launch to attach your remote debugging session, and thus debug the startup 
+# sequence.
+#java.property.debug=true
+
+# Increase the default maximum heap size.
+#java.heap.size.initial=128M
+#java.heap.size.max=256M
+
+# ==============================================================================
+# Do NOT modify beyond this line. ***
+# ==============================================================================
+java.library=%JVM_LIB_PATH%
+java.start.class=com.tibco.security.util.LFile
+java.start.method=main
+application.args=%TIB_HOME%
+
+java.property.TIBCO_SECURITY_VENDOR=j2se
+
+### TEMPLATE HEADER
+
+# The RU closure
+identifier.release.units=
+
+# The RUM closure
+identifier.release.unit.members=
+
+# The class path
+identifier.class.path=
+
+# The library path
+identifier.library.path=
+
+# The library files
+identifier.library.files=
+
+### TEMPLATE FOOTER
+
+tibco.class.path.extended=%identifier.class.path%
+
+tibco.env.PATH=%TIB_JAVA_HOME%/bin%PSP%%identifier.library.path%%PSP%%PATH%
+
+tibco.env.LD_LIBRARY_PATH=%identifier.library.path%%PSP%%LD_LIBRARY_PATH%
+
+tibco.env.SHLIB_PATH=%identifier.library.path%%PSP%%SHLIB_PATH%
+
+tibco.env.LIBPATH=%TIB_JAVA_HOME%/lib/ppc64%PSP%%JVM_LIB_DIR%/classic%PSP%%JVM_LIB_DIR%%PSP%%identifier.library.path%%PSP%%LIBPATH%
+
+

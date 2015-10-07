@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="MiscTests" tests="1" skipped="0" failures="0" errors="0" timestamp="2015-10-02T01:35:56" hostname="Liyan-Z210" time="0.009">
+  <properties/>
+  <testcase name="testBitwise" classname="MiscTests" time="0.009"/>
+  <system-out><![CDATA[38279 
+149 
+-121 
+Length of sessid:  6 
+7 
+]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

@@ -1,0 +1,64 @@
+
+<!ELEMENT administered-object ( queue | topic | connection-factory )>
+
+<!ELEMENT queue EMPTY>
+<!ATTLIST queue name CDATA #REQUIRED>
+
+<!ELEMENT topic EMPTY>
+<!ATTLIST topic name CDATA #REQUIRED>
+
+<!ELEMENT connection-factory ( general-parameters?, security-parameters? )>
+<!ATTLIST connection-factory URL CDATA #REQUIRED>
+<!ATTLIST connection-factory client-ID CDATA #IMPLIED>
+<!ATTLIST connection-factory destination-type ( generic | topic | queue ) #REQUIRED>
+<!ATTLIST connection-factory XA ( enabled | disabled ) #REQUIRED>
+
+
+<!--
+    For:
+        - load-balancing-metric
+        - connection-attempt-count
+        - connection-attempt-delay
+        - reconnection-attempt-count
+        - reconnection-attempt-delay
+ -->
+ 
+<!ELEMENT general-parameters ( parameter+ )>
+
+<!ELEMENT parameter EMPTY>
+<!ATTLIST parameter name CDATA #REQUIRED>
+<!ATTLIST parameter value CDATA #REQUIRED>
+
+<!ELEMENT security-parameters ( SSL-parameters?, certificates? )>
+
+<!ELEMENT SSL-parameters EMPTY>
+<!ATTLIST SSL-parameters vendor CDATA #IMPLIED>
+<!ATTLIST SSL-parameters trace ( enabled | disabled ) #IMPLIED>
+<!ATTLIST SSL-parameters debug-trace ( enabled | disabled ) #IMPLIED>
+<!ATTLIST SSL-parameters verify-host ( enabled | disabled ) #IMPLIED>
+<!ATTLIST SSL-parameters verify-hostname ( enabled | disabled ) #IMPLIED>
+<!ATTLIST SSL-parameters expected-hostname CDATA #IMPLIED>
+<!ATTLIST SSL-parameters ciphers CDATA #IMPLIED>
+<!--
+    renegotiate-size and renegotiate-interval are ignored as of EMS 5.0
+-->
+<!ATTLIST SSL-parameters renegotiate-size CDATA #IMPLIED>
+<!ATTLIST SSL-parameters renegotiate-interval CDATA #IMPLIED>
+
+<!ELEMENT certificates ( client-identity, authorities? )>
+
+<!ELEMENT client-identity ( certificate, private-key? )>
+<!ATTLIST client-identity password CDATA #IMPLIED>
+
+<!ELEMENT certificate EMPTY>
+<!ATTLIST certificate encoding CDATA #REQUIRED>
+<!ATTLIST certificate base64-data CDATA #REQUIRED>
+
+<!ELEMENT private-key EMPTY>
+<!ATTLIST private-key encoding CDATA #REQUIRED>
+<!ATTLIST private-key base64-data CDATA #REQUIRED>
+
+<!ELEMENT authorities ( issuer?,  trusted? )>
+
+<!ELEMENT issuer ( certificate+ )>
+<!ELEMENT trusted ( certificate+ )>
