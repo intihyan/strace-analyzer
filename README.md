@@ -6,10 +6,9 @@ strace-analyzer
 This tool is designed to analyze strace log for potential performance issue with any appications on Linux. The log should be created
 with command "strace -ttT" as we heavily rely on the time spent in each system call.
 
-<<<<<<< HEAD
 Lisa test on branch temp
-=======
->>>>>>> master
+
+Lisa test on branch temp again
 
 If your application is heavy in network traffic, the tool list the most noisy file descriptors for both inbound and outbound traffic.
 
